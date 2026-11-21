@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Descobre restaurantes, lojas, eventos e serviços no concelho de Leiria.">
+  <title>Leiria Maps — Descobre Leiria</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#"><span class="brand-mark">L</span><span>LEIRIA<span class="brand-red"> MAPS</span><small>DESCUBRE O QUE ESTÁ À TUA VOLTA</small></span></a>
+    <nav><a href="#explorar">Explorar</a><a href="#categorias">Categorias</a><a href="#empresas">Para empresas</a></nav>
+    <a class="header-cta" href="#empresas">Adicionar negócio</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow"><span class="dot"></span> O TEU GUIA LOCAL</span>
+        <h1>Leiria está<br><em>mais perto.</em></h1>
+        <p>Encontra sítios para comer, comprar, treinar, passear e descobrir — tudo num só mapa.</p>
+        <div class="searchbar">
+          <span class="search-icon">⌕</span>
+          <input id="searchInput" type="search" placeholder="O que procuras em Leiria?" aria-label="Pesquisar locais">
+          <button id="searchButton">Pesquisar</button>
+        </div>
+        <div class="hero-note">Explora o concelho de Leiria, de forma simples.</div>
+      </div>
+      <div class="hero-art" aria-label="Ilustração decorativa de mapa">
+        <div class="map-card">
+          <div class="map-lines"></div><span class="map-pin pin-one">●</span><span class="map-pin pin-two">●</span><span class="map-pin pin-three">●</span>
+          <div class="map-label">LEIRIA <b>★</b></div><div class="map-tag">Há sempre algo para descobrir.</div>
+        </div>
+        <div class="floating-card"><span>📍</span><div><b>À tua volta</b><small>Descobre locais perto de ti</small></div></div>
+      </div>
+    </section>
+
+    <section id="categorias" class="section categories-section">
+      <div class="section-heading"><div><span class="eyebrow">EXPLORAR POR TEMA</span><h2>O que procuras hoje?</h2></div><button class="text-button" id="clearFilters">Ver tudo ↗</button></div>
+      <div class="category-grid" id="categoryGrid">
+        <button class="category active" data-category="todos"><span>✳</span>Todos</button>
+        <button class="category" data-category="restaurantes"><span>🍽</span>Restaurantes</button>
+        <button class="category" data-category="barbearias"><span>✂</span>Barbearias</button>
+        <button class="category" data-category="eventos"><span>🎟</span>Eventos</button>
+        <button class="category" data-category="lojas"><span>🛍</span>Lojas</button>
+        <button class="category" data-category="ginasios"><span>🏋</span>Ginásios</button>
+        <button class="category" data-category="turismo"><span>🏰</span>Turismo</button>
+        <button class="category" data-category="estudo"><span>📚</span>Estudo</button>
+        <button class="category" data-category="servicos"><span>🧰</span>Serviços</button>
+      </div>
+    </section>
+
+    <section id="explorar" class="section explore-section">
+      <div class="section-heading"><div><span class="eyebrow">MAPA INTERATIVO</span><h2>Descobre Leiria</h2><p class="section-subtitle">Seleciona um marcador para veres mais informações.</p></div><span id="resultCount" class="result-count">A carregar locais…</span></div>
+      <div class="explore-layout">
+        <div id="map" role="application" aria-label="Mapa interativo do concelho de Leiria"></div>
+        <aside class="results-panel"><div class="results-head"><b>Locais para descobrir</b><span id="listCount">—</span></div><div id="placeList" class="place-list"></div></aside>
+      </div>
+      <p class="map-credit">Mapa © OpenStreetMap contributors · Os locais de demonstração estão identificados como exemplos.</p>
+    </section>
+
+    <section id="empresas" class="business-section">
+      <div class="business-copy"><span class="eyebrow light">PARA NEGÓCIOS LOCAIS</span><h2>O teu negócio<br>também merece<br><em>ser descoberto.</em></h2><p>Cria uma presença no Leiria Maps e ajuda mais pessoas a encontrar a tua empresa.</p><ul><li>Perfil com contactos e localização</li><li>Presença nas pesquisas por categoria</li><li>Possibilidade de destaque no futuro</li></ul></div>
+      <form id="businessForm" class="business-form">
+        <h3>Propõe um negócio</h3><p>Envia os dados para análise. A publicação não é automática.</p>
+        <label>Nome do negócio<input name="name" required maxlength="90" placeholder="Ex.: Café Central"></label>
+        <label>Categoria<select name="category" required><option value="">Escolhe uma categoria</option><option value="restaurantes">Restaurantes</option><option value="barbearias">Barbearias</option><option value="eventos">Eventos</option><option value="lojas">Lojas</option><option value="ginasios">Ginásios</option><option value="turismo">Turismo</option><option value="estudo">Estudo</option><option value="servicos">Serviços</option></select></label>
+        <label>Morada<input name="address" required maxlength="180" placeholder="Rua, localidade, Leiria"></label>
+        <div class="form-row"><label>Telefone (opcional)<input name="phone" maxlength="30" placeholder="Telefone"></label><label>Website (opcional)<input name="website" type="url" maxlength="180" placeholder="https://"></label></div>
+        <label>Descrição<textarea name="description" rows="3" maxlength="500" placeholder="O que torna este negócio especial?"></textarea></label>
+        <button type="submit" class="submit-button">Enviar proposta <span>↗</span></button>
+        <div id="formMessage" class="form-message" role="status"></div>
+        <small>Ao enviar, confirmas que tens autorização para partilhar estes dados. As propostas serão revistas antes de serem publicadas.</small>
+      </form>
+    </section>
+  </main>
+
+  <footer><a class="brand footer-brand" href="#"><span class="brand-mark">L</span><span>LEIRIA<span class="brand-red"> MAPS</span><small>DESCUBRE O QUE ESTÁ À TUA VOLTA</small></span></a><span>Feito para descobrir o concelho de Leiria.</span><span>© <span id="year"></span> Leiria Maps</span></footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
