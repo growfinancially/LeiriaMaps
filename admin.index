@@ -1,0 +1,165 @@
+
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administração | Leiria Maps</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+.admin{max-width:900px;margin:45px auto;padding:20px}
+.panel{background:white;padding:25px;border:1px solid #eee;border-radius:14px;margin:20px 0}
+.panel input{display:block;width:100%;padding:13px;margin:10px 0;border:1px solid #ddd;border-radius:8px}
+.btn{padding:11px 17px;border:0;border-radius:8px;background:#d92332;color:white;font-weight:bold;cursor:pointer;margin:5px}
+.reject{background:#333}
+.item{border:1px solid #eee;padding:17px;border-radius:10px;margin:12px 0}
+.item p{font-size:13px;color:#666}
+.hidden{display:none}
+.status{font-size:13px;margin-top:12px}
+</style>
+</head>
+<body>
+<header class="topbar">
+<a class="brand" href="./">LEIRIA MAPS</a>
+<a class="header-cta" href="./">Ver site</a>
+</header>
+
+<main class="admin">
+<section id="login" class="panel">
+<h1>Painel de administração</h1>
+<p>Entra com a tua conta de administrador.</p>
+<form id="loginForm">
+<input name="email" type="email" placeholder="Email" required>
+<input name="password" type="password" placeholder="Palavra-passe" required>
+<button class="btn">Entrar</button>
+</form>
+<p id="loginMsg" class="status"></p>
+</section>
+
+<section id="dashboard" class="hidden">
+<h1>Propostas recebidas</h1>
+<button class="btn" id="refresh">Atualizar</button>
+<button class="btn reject" id="logout">Terminar sessão</button>
+<div id="proposals" class="panel">A carregar...</div>
+<p id="status" class="status"></p>
+</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const cfg=window.LEIRIA_MAPS_CONFIG;
+const db=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY);
+const login=document.getElementById("login");
+const dashboard=document.getElementById("dashboard");
+const proposals=document.getElementById("proposals");
+
+function msg(id,text,error=false){
+ const el=document.getElementById(id);
+ el.textContent=text;
+ el.style.color=error?"#c32130":"#267b45";
+}
+
+async function start(){
+ const {data:{user}}=await db.auth.getUser();
+ if(!user){login.classList.remove("hidden");dashboard.classList.add("hidden");return;}
+ const {data:admin,error}=await db.from("admin_users")
+ .select("user_id").eq("user_id",user.id).maybeSingle();
+
+ if(error||!admin){
+  await db.auth.signOut();
+  login.classList.remove("hidden");
+  dashboard.classList.add("hidden");
+  msg("loginMsg","Esta conta não tem acesso de administrador.",true);
+  return;
+ }
+ login.classList.add("hidden");
+ dashboard.classList.remove("hidden");
+ load();
+}
+
+async function load(){
+ proposals.textContent="A carregar propostas...";
+ const {data,error}=await db.from("business_submissions")
+ .select("*").order("created_at",{ascending:false});
+
+ if(error){proposals.textContent="Erro ao carregar propostas.";return;}
+ if(!data.length){proposals.textContent="Não existem propostas pendentes.";return;}
+
+ proposals.innerHTML="";
+ data.forEach(s=>{
+  const card=document.createElement("article");
+  card.className="item";
+  const title=document.createElement("h3");
+  title.textContent=s.name;
+  const details=document.createElement("p");
+  details.textContent=s.category+" · "+s.address;
+  const description=document.createElement("p");
+  description.textContent=s.description||"Sem descrição";
+  const contact=document.createElement("p");
+  contact.textContent="Telefone: "+(s.phone||"—")+" | Website: "+(s.website||"—");
+
+  const approve=document.createElement("button");
+  approve.className="btn";
+  approve.textContent="Aprovar";
+  approve.onclick=()=>decide(s.id,true);
+
+  const reject=document.createElement("button");
+  reject.className="btn reject";
+  reject.textContent="Rejeitar";
+  reject.onclick=()=>decide(s.id,false);
+
+  card.append(title,details,description,contact,approve,reject);
+  proposals.appendChild(card);
+ });
+}
+
+async function decide(id,approved){
+ msg("status","A processar...");
+ const {data:s,error}=await db.from("business_submissions")
+ .select("*").eq("id",id).single();
+
+ if(error){msg("status","Não foi possível obter a proposta.",true);return;}
+
+ if(approved){
+  const {error:insertError}=await db.from("businesses").insert([{
+   name:s.name,category:s.category,address:s.address,
+   description:s.description,phone:s.phone,website:s.website,
+   status:"approved"
+  }]);
+  if(insertError){msg("status","Erro ao publicar: "+insertError.message,true);return;}
+ }
+
+ const {error:deleteError}=await db.from("business_submissions")
+ .delete().eq("id",id);
+
+ if(deleteError){
+  msg("status","A ação foi feita, mas não foi possível remover a proposta. Atualiza o painel.",true);
+  return;
+ }
+
+ msg("status",approved?"Empresa aprovada e publicada!":"Proposta rejeitada.");
+ load();
+}
+
+document.getElementById("loginForm").onsubmit=async e=>{
+ e.preventDefault();
+ const f=new FormData(e.target);
+ msg("loginMsg","A entrar...");
+ const {error}=await db.auth.signInWithPassword({
+  email:f.get("email"),password:f.get("password")
+ });
+ if(error){msg("loginMsg","Email ou palavra-passe incorretos.",true);return;}
+ await start();
+};
+
+document.getElementById("logout").onclick=async()=>{
+ await db.auth.signOut();
+ await start();
+};
+
+document.getElementById("refresh").onclick=load;
+start();
+</script>
+</body>
+</html>
