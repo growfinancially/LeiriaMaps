@@ -152,6 +152,25 @@ async function load(){
   coords.className="coordinates";
   coords.textContent="Localização ainda não escolhida.";
 
+  const photoTitle=document.createElement("h4");
+photoTitle.textContent="Fotografias da empresa";
+
+const logoInput=document.createElement("input");
+logoInput.type="file";
+logoInput.accept="image/jpeg,image/png,image/webp";
+logoInput.id="logo-"+s.id;
+
+const logoLabel=document.createElement("label");
+logoLabel.textContent="Logótipo:";
+
+const coverInput=document.createElement("input");
+coverInput.type="file";
+coverInput.accept="image/jpeg,image/png,image/webp";
+coverInput.id="cover-"+s.id;
+
+const coverLabel=document.createElement("label");
+coverLabel.textContent="Imagem de capa:";
+  
   const approve=document.createElement("button");
   approve.className="btn";
   approve.textContent="Aprovar e publicar";
@@ -162,9 +181,11 @@ async function load(){
 
   card.append(
    title,details,description,contact,
+   photoTitle,logoLabel,logoInput,
+   coverLabel,coverInput,
    heading,instruction,mapDiv,coords,
    approve,reject
-  );
+);
 
   proposals.appendChild(card);
 
