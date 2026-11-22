@@ -231,12 +231,46 @@ coverLabel.textContent="Imagem de capa:";
 
   setTimeout(()=>map.invalidateSize(),200);
 
-  approve.onclick=()=>decide(s.id,true);
+  approve.onclick=()=>{
+ decide(s.id,true,{
+  logo:logoInput.files[0],
+  cover:coverInput.files[0]
+ });
+};
   reject.onclick=()=>decide(s.id,false);
  });
 }
 
-async function decide(id,approved){
+async function uploadBusinessPhoto(file,businessId,type){
+ if(!file) return null;
+
+ if(!["image/jpeg","image/png","image/webp"].includes(file.type)){
+  throw new Error("Formato inválido. Usa JPG, PNG ou WEBP.");
+ }
+
+ if(file.size>5*1024*1024){
+  throw new Error("Cada fotografia deve ter no máximo 5 MB.");
+ }
+
+ const extension=file.type==="image/png"?"png":
+  file.type==="image/webp"?"webp":"jpg";
+
+ const path=businessId+"/"+type+"-"+Date.now()+"."+extension;
+
+ const {error}=await db.storage
+  .from("business-photos")
+  .upload(path,file,{contentType:file.type});
+
+ if(error) throw error;
+
+ const {data}=db.storage
+  .from("business-photos")
+  .getPublicUrl(path);
+
+ return data.publicUrl;
+}
+ 
+ async function decide(id,approved,photos={}){
  msg("status","A processar...");
 
  const {data:s,error}=await db
@@ -258,6 +292,22 @@ async function decide(id,approved){
    return;
   }
 
+    let logoUrl=null;
+  let coverUrl=null;
+
+  try{
+   logoUrl=await uploadBusinessPhoto(
+    photos.logo,id,"logo"
+   );
+
+   coverUrl=await uploadBusinessPhoto(
+    photos.cover,id,"cover"
+   );
+  }catch(error){
+   msg("status","Erro nas fotografias: "+error.message,true);
+   return;
+  }
+  
   const {error:insertError}=await db
    .from("businesses")
    .insert([{
@@ -267,6 +317,8 @@ async function decide(id,approved){
     description:s.description,
     phone:s.phone,
     website:s.website,
+    logo_url:logoUrl,
+    cover_url:coverUrl,
     lat:location.lat,
     lng:location.lng,
     status:"approved"
