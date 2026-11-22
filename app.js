@@ -69,7 +69,7 @@ function render() {
 async function loadBusinesses() {
   if(!db) { render(); return; }
   try {
-    const {data,error}=await db.from("businesses").select("id,name,category,address,description,lat,lng").eq("status","approved").limit(500);
+    const {data,error}=await db.from("businesses").select("id,name,category,address,description,lat,lng,logo_url,cover_url").eq("status","approved").limit(500);
     if(error) throw error;
     allPlaces=[...demoPlaces,...(data||[])]; render();
   } catch(err) { console.error("Não foi possível carregar os negócios:",err); render(); }
