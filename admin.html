@@ -5,19 +5,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Administração | Leiria Maps</title>
+
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
 <style>
-.admin{max-width:900px;margin:45px auto;padding:20px}
-.panel{background:white;padding:25px;border:1px solid #eee;border-radius:14px;margin:20px 0}
+.admin{max-width:950px;margin:35px auto;padding:20px}
+.panel,.item{background:white;padding:22px;border:1px solid #eee;border-radius:14px;margin:18px 0}
 .panel input{display:block;width:100%;padding:13px;margin:10px 0;border:1px solid #ddd;border-radius:8px}
 .btn{padding:11px 17px;border:0;border-radius:8px;background:#d92332;color:white;font-weight:bold;cursor:pointer;margin:5px}
 .reject{background:#333}
-.item{border:1px solid #eee;padding:17px;border-radius:10px;margin:12px 0}
-.item p{font-size:13px;color:#666}
 .hidden{display:none}
 .status{font-size:13px;margin-top:12px}
+.location-map{height:260px;width:100%;border-radius:10px;margin:12px 0;z-index:1}
+.coordinates{font-size:13px;color:#555}
 </style>
 </head>
+
 <body>
 <header class="topbar">
 <a class="brand" href="./">LEIRIA MAPS</a>
@@ -25,6 +29,7 @@
 </header>
 
 <main class="admin">
+
 <section id="login" class="panel">
 <h1>Painel de administração</h1>
 <p>Entra com a tua conta de administrador.</p>
@@ -43,16 +48,25 @@
 <div id="proposals" class="panel">A carregar...</div>
 <p id="status" class="status"></p>
 </section>
+
 </main>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+
 <script>
 const cfg=window.LEIRIA_MAPS_CONFIG;
-const db=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY);
+const db=window.supabase.createClient(
+ cfg.SUPABASE_URL,
+ cfg.SUPABASE_ANON_KEY
+);
+
 const login=document.getElementById("login");
 const dashboard=document.getElementById("dashboard");
 const proposals=document.getElementById("proposals");
+
+const selectedLocations={};
 
 function msg(id,text,error=false){
  const el=document.getElementById(id);
@@ -62,9 +76,18 @@ function msg(id,text,error=false){
 
 async function start(){
  const {data:{user}}=await db.auth.getUser();
- if(!user){login.classList.remove("hidden");dashboard.classList.add("hidden");return;}
- const {data:admin,error}=await db.from("admin_users")
- .select("user_id").eq("user_id",user.id).maybeSingle();
+
+ if(!user){
+  login.classList.remove("hidden");
+  dashboard.classList.add("hidden");
+  return;
+ }
+
+ const {data:admin,error}=await db
+ .from("admin_users")
+ .select("user_id")
+ .eq("user_id",user.id)
+ .maybeSingle();
 
  if(error||!admin){
   await db.auth.signOut();
@@ -73,6 +96,7 @@ async function start(){
   msg("loginMsg","Esta conta não tem acesso de administrador.",true);
   return;
  }
+
  login.classList.add("hidden");
  dashboard.classList.remove("hidden");
  load();
@@ -80,76 +104,196 @@ async function start(){
 
 async function load(){
  proposals.textContent="A carregar propostas...";
- const {data,error}=await db.from("business_submissions")
- .select("*").order("created_at",{ascending:false});
 
- if(error){proposals.textContent="Erro ao carregar propostas.";return;}
- if(!data.length){proposals.textContent="Não existem propostas pendentes.";return;}
+ const {data,error}=await db
+ .from("business_submissions")
+ .select("*")
+ .order("created_at",{ascending:false});
+
+ if(error){
+  proposals.textContent="Erro ao carregar propostas: "+error.message;
+  return;
+ }
+
+ if(!data.length){
+  proposals.textContent="Não existem propostas pendentes.";
+  return;
+ }
 
  proposals.innerHTML="";
+
  data.forEach(s=>{
   const card=document.createElement("article");
   card.className="item";
+
   const title=document.createElement("h3");
   title.textContent=s.name;
+
   const details=document.createElement("p");
   details.textContent=s.category+" · "+s.address;
+
   const description=document.createElement("p");
   description.textContent=s.description||"Sem descrição";
+
   const contact=document.createElement("p");
   contact.textContent="Telefone: "+(s.phone||"—")+" | Website: "+(s.website||"—");
 
+  const heading=document.createElement("h4");
+  heading.textContent="Escolher localização no mapa";
+
+  const instruction=document.createElement("p");
+  instruction.textContent="Toca no mapa no local exato da empresa para colocar o marcador.";
+
+  const mapDiv=document.createElement("div");
+  mapDiv.className="location-map";
+  mapDiv.id="map-"+s.id;
+
+  const coords=document.createElement("p");
+  coords.className="coordinates";
+  coords.textContent="Localização ainda não escolhida.";
+
   const approve=document.createElement("button");
   approve.className="btn";
-  approve.textContent="Aprovar";
-  approve.onclick=()=>decide(s.id,true);
+  approve.textContent="Aprovar e publicar";
 
   const reject=document.createElement("button");
   reject.className="btn reject";
   reject.textContent="Rejeitar";
-  reject.onclick=()=>decide(s.id,false);
 
-  card.append(title,details,description,contact,approve,reject);
+  card.append(
+   title,details,description,contact,
+   heading,instruction,mapDiv,coords,
+   approve,reject
+  );
+
   proposals.appendChild(card);
+
+  const initialLat=Number(s.lat);
+  const initialLng=Number(s.lng);
+
+  const hasLocation=s.lat!==null && s.lng!==null &&
+   Number.isFinite(initialLat) && Number.isFinite(initialLng);
+
+  const map=L.map(mapDiv.id).setView(
+   hasLocation?[initialLat,initialLng]:[39.7444,-8.8073],
+   hasLocation?16:13
+  );
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+   maxZoom:19,
+   attribution:"© OpenStreetMap"
+  }).addTo(map);
+
+  let marker=null;
+
+  function setLocation(lat,lng){
+   selectedLocations[s.id]={lat,lng};
+
+   if(marker){
+    marker.setLatLng([lat,lng]);
+   }else{
+    marker=L.marker([lat,lng]).addTo(map);
+   }
+
+   coords.textContent=
+    "Latitude: "+lat.toFixed(6)+
+    " | Longitude: "+lng.toFixed(6);
+  }
+
+  if(hasLocation){
+   setLocation(initialLat,initialLng);
+  }
+
+  map.on("click",event=>{
+   setLocation(event.latlng.lat,event.latlng.lng);
+  });
+
+  setTimeout(()=>map.invalidateSize(),200);
+
+  approve.onclick=()=>decide(s.id,true);
+  reject.onclick=()=>decide(s.id,false);
  });
 }
 
 async function decide(id,approved){
  msg("status","A processar...");
- const {data:s,error}=await db.from("business_submissions")
- .select("*").eq("id",id).single();
 
- if(error){msg("status","Não foi possível obter a proposta.",true);return;}
+ const {data:s,error}=await db
+  .from("business_submissions")
+  .select("*")
+  .eq("id",id)
+  .single();
 
- if(approved){
-  const {error:insertError}=await db.from("businesses").insert([{
-   name:s.name,category:s.category,address:s.address,
-   description:s.description,phone:s.phone,website:s.website,
-   status:"approved"
-  }]);
-  if(insertError){msg("status","Erro ao publicar: "+insertError.message,true);return;}
- }
-
- const {error:deleteError}=await db.from("business_submissions")
- .delete().eq("id",id);
-
- if(deleteError){
-  msg("status","A ação foi feita, mas não foi possível remover a proposta. Atualiza o painel.",true);
+ if(error){
+  msg("status","Não foi possível obter a proposta.",true);
   return;
  }
 
- msg("status",approved?"Empresa aprovada e publicada!":"Proposta rejeitada.");
+ if(approved){
+  const location=selectedLocations[id];
+
+  if(!location){
+   msg("status","Escolhe primeiro a localização no mapa.",true);
+   return;
+  }
+
+  const {error:insertError}=await db
+   .from("businesses")
+   .insert([{
+    name:s.name,
+    category:s.category,
+    address:s.address,
+    description:s.description,
+    phone:s.phone,
+    website:s.website,
+    lat:location.lat,
+    lng:location.lng,
+    status:"approved"
+   }]);
+
+  if(insertError){
+   msg("status","Erro ao publicar: "+insertError.message,true);
+   return;
+  }
+ }
+
+ const {error:deleteError}=await db
+  .from("business_submissions")
+  .delete()
+  .eq("id",id);
+
+ if(deleteError){
+  msg("status","Ação feita, mas não foi possível remover a proposta. Atualiza o painel.",true);
+  return;
+ }
+
+ delete selectedLocations[id];
+
+ msg("status",approved?
+  "Empresa aprovada e publicada com localização!":
+  "Proposta rejeitada."
+ );
+
  load();
 }
 
 document.getElementById("loginForm").onsubmit=async e=>{
  e.preventDefault();
+
  const f=new FormData(e.target);
+
  msg("loginMsg","A entrar...");
+
  const {error}=await db.auth.signInWithPassword({
-  email:f.get("email"),password:f.get("password")
+  email:f.get("email"),
+  password:f.get("password")
  });
- if(error){msg("loginMsg","Email ou palavra-passe incorretos.",true);return;}
+
+ if(error){
+  msg("loginMsg","Email ou palavra-passe incorretos.",true);
+  return;
+ }
+
  await start();
 };
 
@@ -159,6 +303,7 @@ document.getElementById("logout").onclick=async()=>{
 };
 
 document.getElementById("refresh").onclick=load;
+
 start();
 </script>
 </body>
