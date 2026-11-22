@@ -55,7 +55,18 @@ function render() {
     }
     const card=document.createElement("button");
     card.className="place-card"; card.type="button"; card.style.width="100%"; card.style.textAlign="left"; card.style.borderLeft="0";card.style.borderRight="0";card.style.borderTop="0";
-    card.innerHTML=`<div class="place-top"><div><h3>${escapeHTML(p.name)}</h3><p>${escapeHTML(p.address||"Morada não indicada")}</p></div><span class="pill">${escapeHTML(categoryNames[p.category]||"Local")}</span></div><p style="margin-top:8px">${escapeHTML(p.description||"")}</p>`;
+   card.innerHTML=`
+  ${p.cover_url ? `<img src="${escapeHTML(p.cover_url)}" alt="Capa de ${escapeHTML(p.name)}" style="width:100%;height:150px;object-fit:cover;border-radius:10px 10px 0 0;">` : ""}
+  <div style="display:flex;align-items:center;gap:12px;padding:12px;">
+    ${p.logo_url ? `<img src="${escapeHTML(p.logo_url)}" alt="Logótipo" style="width:55px;height:55px;object-fit:contain;border-radius:8px;">` : ""}
+    <div>
+      <h3>${escapeHTML(p.name)}</h3>
+      <p>${escapeHTML(p.address||"Morada não indicada")}</p>
+    </div>
+    <span class="pill">${escapeHTML(categoryNames[p.category]||"Local")}</span>
+  </div>
+  <p style="margin:8px 12px;">${escapeHTML(p.description||"")}</p>
+`;
     card.addEventListener("click",()=>{
       if(Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))){map.setView([Number(p.lat),Number(p.lng)],16);const marker=markers.find(m=>{const ll=m.getLatLng();return Math.abs(ll.lat-p.lat)<0.000001&&Math.abs(ll.lng-p.lng)<0.000001});if(marker)marker.openPopup();}
       else if(p.address) window.open("https://www.openstreetmap.org/search?query="+encodeURIComponent(p.address)," _blank");
