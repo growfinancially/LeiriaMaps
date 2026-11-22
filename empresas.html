@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Empresa | Leiria Maps</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+.profile{max-width:950px;margin:35px auto;padding:20px}
+.cover{width:100%;height:280px;object-fit:cover;border-radius:16px;background:#eee}
+.profile-head{display:flex;align-items:center;gap:18px;margin:22px 0}
+.logo{width:100px;height:100px;object-fit:contain;background:white;border:1px solid #eee;border-radius:14px}
+.profile h1{font-size:30px;margin:0 0 8px}
+.profile p{color:#666;line-height:1.7}
+.profile-info{background:white;padding:22px;border:1px solid #eee;border-radius:14px;margin:20px 0}
+.profile-info a{color:#d92332}
+#businessMap{height:350px;border-radius:14px;margin-top:15px}
+.profile-button{display:inline-block;background:#d92332;color:white;padding:12px 18px;border-radius:8px;text-decoration:none;margin:8px 5px 8px 0}
+@media(max-width:600px){
+ .cover{height:190px}
+ .profile-head{align-items:flex-start}
+ .logo{width:75px;height:75px}
+ .profile h1{font-size:23px}
+}
+</style>
+</head>
+
+<body>
+
+<header class="topbar">
+<a class="brand" href="./">LEIRIA MAPS</a>
+<a class="header-cta" href="./">Voltar ao mapa</a>
+</header>
+
+<main class="profile">
+
+<div id="loading">A carregar empresa...</div>
+
+<section id="businessProfile" hidden>
+
+<img id="cover" class="cover" alt="Imagem de capa">
+
+<div class="profile-head">
+<img id="logo" class="logo" alt="Logótipo">
+<div>
+<h1 id="name"></h1>
+<span id="category"></span>
+</div>
+</div>
+
+<div class="profile-info">
+<h3>Sobre a empresa</h3>
+<p id="description"></p>
+
+<h3>Contactos</h3>
+<p id="phone"></p>
+<p id="website"></p>
+
+<h3>Morada</h3>
+<p id="address"></p>
+</div>
+
+<div class="profile-info">
+<h3>Localização</h3>
+<div id="businessMap"></div>
+</div>
+
+</section>
+
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+
+<script>
+const cfg=window.LEIRIA_MAPS_CONFIG;
+const db=window.supabase.createClient(
+ cfg.SUPABASE_URL,
+ cfg.SUPABASE_ANON_KEY
+);
+
+const id=new URLSearchParams(location.search).get("id");
+
+function showText(elementId,value){
+ document.getElementById(elementId).textContent=value||"Não indicado";
+}
+
+async function loadProfile(){
+ if(!id){
+  document.getElementById("loading").textContent="Empresa não encontrada.";
+  return;
+ }
+
+ const {data,error}=await db
+  .from("businesses")
+  .select("id,name,category,address,description,phone,website,lat,lng,logo_url,cover_url")
+  .eq("id",id)
+  .eq("status","approved")
+  .maybeSingle();
+
+ if(error||!data){
+  document.getElementById("loading").textContent="Não foi possível encontrar esta empresa.";
+  return;
+ }
+
+ const p=data;
+
+ showText("name",p.name);
+ showText("category",p.category);
+ showText("description",p.description);
+ showText("phone",p.phone);
+ showText("address",p.address);
+
+ const website=document.getElementById("website");
+ website.textContent=p.website||"Website não indicado";
+
+ if(p.website){
+  website.innerHTML="";
+  const link=document.createElement("a");
+  link.href=p.website;
+  link.textContent="Visitar website";
+  link.target="_blank";
+  link.rel="noopener noreferrer";
+  website.appendChild(link);
+ }
+
+ if(p.logo_url){
+  document.getElementById("logo").src=p.logo_url;
+ }else{
+  document.getElementById("logo").hidden=true;
+ }
+
+ if(p.cover_url){
+  document.getElementById("cover").src=p.cover_url;
+ }else{
+  document.getElementById("cover").hidden=true;
+ }
+
+ document.getElementById("loading").hidden=true;
+ document.getElementById("businessProfile").hidden=false;
+
+ if(p.lat!==null&&p.lng!==null){
+  const map=L.map("businessMap").setView([p.lat,p.lng],16);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+   maxZoom:19,
+   attribution:"© OpenStreetMap"
+  }).addTo(map);
+
+  L.marker([p.lat,p.lng])
+   .addTo(map)
+   .bindPopup(p.name)
+   .openPopup();
+ }
+}
+
+loadProfile();
+</script>
+
+</body>
+</html>
