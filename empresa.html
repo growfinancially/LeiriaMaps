@@ -55,7 +55,31 @@
 <h3>Sobre a empresa</h3>
 <p id="description"></p>
 
-<h3>Contactos</h3>
+<div class="profile-info" id="directionsPanel">
+  <h3>Como chegar</h3>
+  <p>Escolhe o teu ponto de partida:</p>
+
+  <input
+    id="startPoint"
+    type="text"
+    placeholder="Escreve uma morada ou local"
+    style="width:100%;padding:12px;box-sizing:border-box;"
+  >
+
+  <button class="profile-button" id="routeButton" type="button">
+    Traçar rota
+  </button>
+
+  <button class="profile-button" id="locationButton" type="button">
+    Usar a minha localização
+  </button>
+
+  <p id="routeStatus"></p>
+  <div id="routeSummary" hidden></div>
+  <ol id="routeSteps"></ol>
+</div>
+ 
+ <h3>Contactos</h3>
 <p id="phone"></p>
 <p id="website"></p>
 
