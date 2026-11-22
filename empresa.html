@@ -107,8 +107,79 @@ const db=window.supabase.createClient(
  cfg.SUPABASE_ANON_KEY
 );
 
-const id=new URLSearchParams(location.search).get("id");
+let map = null;
+let destination = null;
+let routeLayer = null;
 
+const id = new URLSearchParams(location.search).get("id");
+
+async function geocodeAddress(address) {
+  const url = "https://photon.komoot.io/api/?limit=1&q=" + encodeURIComponent(address);
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  if (!data.features || !data.features.length) {
+    throw new Error("Morada não encontrada.");
+  }
+
+  const coordinates = data.features[0].geometry.coordinates;
+
+  return {
+    lng: coordinates[0],
+    lat: coordinates[1]
+  };
+}
+
+async function drawRoute(origin) {
+  if (!destination || !map) {
+    document.getElementById("routeStatus").textContent =
+      "Localização da empresa indisponível.";
+    return;
+  }
+
+  const status = document.getElementById("routeStatus");
+  status.textContent = "A calcular percurso...";
+
+  try {
+    const url =
+      "https://router.project-osrm.org/route/v1/driving/" +
+      origin.lng + "," + origin.lat + ";" +
+      destination.lng + "," + destination.lat +
+      "?overview=full&geometries=geojson";
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.code !== "Ok" || !data.routes.length) {
+      throw new Error("Não foi possível calcular a rota.");
+    }
+
+    if (routeLayer) map.removeLayer(routeLayer);
+
+    routeLayer = L.geoJSON(data.routes[0].geometry, {
+      style: {
+        color: "#d92332",
+        weight: 6
+      }
+    }).addTo(map);
+
+    const route = data.routes[0];
+    const km = (route.distance / 1000).toFixed(1);
+    const minutes = Math.round(route.duration / 60);
+
+    document.getElementById("routeSummary").hidden = false;
+    document.getElementById("routeSummary").textContent =
+      "Distância: " + km + " km · Tempo estimado de carro: " + minutes + " min";
+
+    map.fitBounds(routeLayer.getBounds(), { padding: [25, 25] });
+
+    status.textContent = "Rota calculada com sucesso!";
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
+ 
 function showText(elementId,value){
  document.getElementById(elementId).textContent=value||"Não indicado";
 }
@@ -168,7 +239,12 @@ async function loadProfile(){
  document.getElementById("businessProfile").hidden=false;
 
  if(p.lat!==null&&p.lng!==null){
-  const map=L.map("businessMap").setView([p.lat,p.lng],16);
+  map=L.map("businessMap").setView([p.lat,p.lng],16);
+
+destination={
+  lat:Number(p.lat),
+  lng:Number(p.lng)
+};
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
    maxZoom:19,
@@ -182,7 +258,43 @@ async function loadProfile(){
  }
 }
 
-loadProfile();
+document.getElementById("routeButton").addEventListener("click", async () => {
+  const address = document.getElementById("startPoint").value.trim();
+
+  if (!address) {
+    document.getElementById("routeStatus").textContent =
+      "Escreve primeiro o ponto de partida.";
+    return;
+  }
+
+  try {
+    document.getElementById("routeStatus").textContent =
+      "A procurar morada...";
+
+    const origin = await geocodeAddress(address);
+    await drawRoute(origin);
+
+  } catch (error) {
+    document.getElementById("routeStatus").textContent = error.message;
+  }
+});
+
+document.getElementById("locationButton").addEventListener("click", () => {
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      drawRoute({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      });
+    },
+    () => {
+      document.getElementById("routeStatus").textContent =
+        "Não foi possível obter a localização. Escreve uma morada.";
+    }
+  );
+});
+ 
+ loadProfile();
 </script>
 
 </body>
