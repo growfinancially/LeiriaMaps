@@ -90,6 +90,7 @@
 <div class="profile-info">
 <h3>Localização</h3>
 <div id="businessMap"></div>
+
 </div>
 
 </section>
@@ -99,7 +100,17 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<div style="margin-top:12px;">
+  <button class="profile-button" id="startTracking" type="button">
+    Acompanhar a minha localização
+  </button>
 
+  <button class="profile-button" id="stopTracking" type="button">
+    Parar acompanhamento
+  </button>
+</div>
+
+<p id="trackingStatus"></p>
 <script>
 const cfg=window.LEIRIA_MAPS_CONFIG;
 const db=window.supabase.createClient(
@@ -330,6 +341,58 @@ document.getElementById("locationButton").addEventListener("click", () => {
         "Não foi possível obter a localização. Escreve uma morada.";
     }
   );
+});
+ 
+  let currentLocationMarker = null;
+
+document.getElementById("startTracking").addEventListener("click", () => {
+  const status = document.getElementById("trackingStatus");
+
+  if (!navigator.geolocation) {
+    status.textContent = "Localização não suportada pelo navegador.";
+    return;
+  }
+
+  status.textContent = "A obter a tua localização...";
+
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      if (!map) {
+        status.textContent = "O mapa ainda não está disponível.";
+        return;
+      }
+
+      if (currentLocationMarker) {
+        map.removeLayer(currentLocationMarker);
+      }
+
+      currentLocationMarker = L.marker([lat, lng])
+        .addTo(map)
+        .bindPopup("A tua localização");
+
+      map.setView([lat, lng], 16);
+      currentLocationMarker.openPopup();
+
+      status.textContent = "Localização apresentada no mapa.";
+    },
+    () => {
+      status.textContent = "Não foi possível obter a localização. Verifica as permissões.";
+    },
+    { enableHighAccuracy: true, timeout: 15000 }
+  );
+});
+
+document.getElementById("stopTracking").addEventListener("click", () => {
+  if (currentLocationMarker && map) {
+    map.removeLayer(currentLocationMarker);
+    currentLocationMarker = null;
+  }
+
+  document.getElementById("trackingStatus").textContent =
+    "Marcador de localização removido.";
 });
  
  loadProfile();
