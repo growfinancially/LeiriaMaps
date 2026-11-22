@@ -68,9 +68,23 @@ function render() {
   <p style="margin:8px 12px;">${escapeHTML(p.description||"")}</p>
 `;
     card.addEventListener("click",()=>{
-      if(Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))){map.setView([Number(p.lat),Number(p.lng)],16);const marker=markers.find(m=>{const ll=m.getLatLng();return Math.abs(ll.lat-p.lat)<0.000001&&Math.abs(ll.lng-p.lng)<0.000001});if(marker)marker.openPopup();}
-      else if(p.address) window.open("https://www.openstreetmap.org/search?query="+encodeURIComponent(p.address)," _blank");
+  if(p.id && !String(p.id).startsWith("demo-")){
+    window.location.href="empresa.html?id="+encodeURIComponent(p.id);
+    return;
+  }
+
+  if(Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))){
+    map.setView([Number(p.lat),Number(p.lng)],16);
+
+    const marker=markers.find(m=>{
+      const ll=m.getLatLng();
+      return Math.abs(ll.lat-p.lat)<0.000001 &&
+             Math.abs(ll.lng-p.lng)<0.000001;
     });
+
+    if(marker) marker.openPopup();
+  }
+});
     list.appendChild(card);
   });
   document.getElementById("resultCount").textContent=`${places.length} ${places.length===1?"resultado":"resultados"}`;
