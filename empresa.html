@@ -133,8 +133,7 @@ async function geocodeAddress(address) {
 
 async function drawRoute(origin) {
   if (!destination || !map) {
-    document.getElementById("routeStatus").textContent =
-      "Localização da empresa indisponível.";
+    routeMessage("Localização da empresa indisponível.");
     return;
   }
 
@@ -146,7 +145,7 @@ async function drawRoute(origin) {
       "https://router.project-osrm.org/route/v1/driving/" +
       origin.lng + "," + origin.lat + ";" +
       destination.lng + "," + destination.lat +
-      "?overview=full&geometries=geojson";
+      "?overview=full&geometries=geojson&steps=true";
 
     const response = await fetch(url);
     const data = await response.json();
@@ -160,7 +159,8 @@ async function drawRoute(origin) {
     routeLayer = L.geoJSON(data.routes[0].geometry, {
       style: {
         color: "#d92332",
-        weight: 6
+        weight: 6,
+        opacity: 0.9
       }
     }).addTo(map);
 
@@ -170,11 +170,49 @@ async function drawRoute(origin) {
 
     document.getElementById("routeSummary").hidden = false;
     document.getElementById("routeSummary").textContent =
-      "Distância: " + km + " km · Tempo estimado de carro: " + minutes + " min";
+      "Distância: " + km + " km · Tempo estimado: " + minutes + " min";
 
-    map.fitBounds(routeLayer.getBounds(), { padding: [25, 25] });
+    const stepsList = document.getElementById("routeSteps");
+    stepsList.innerHTML = "";
 
-    status.textContent = "Rota calculada com sucesso!";
+    const directions = {
+      depart: "Começa o percurso",
+      turn: "Vira",
+      continue: "Continua",
+      merge: "Entra",
+      fork: "Segue na bifurcação",
+      "end of road": "No fim da estrada, vira",
+      roundabout: "Entra na rotunda",
+      rotary: "Segue na rotunda",
+      arrive: "Chegaste ao destino"
+    };
+
+    route.legs.forEach(leg => {
+      leg.steps.forEach(step => {
+        const type = step.maneuver.type;
+        const modifier = step.maneuver.modifier || "";
+        const road = step.name ? " para " + step.name : "";
+
+        let instruction = directions[type] || "Continua";
+
+        if (type === "turn" || type === "end of road") {
+          instruction += " " + modifier;
+        }
+
+        const li = document.createElement("li");
+        li.textContent = instruction + road;
+        li.style.padding = "8px 0";
+
+        stepsList.appendChild(li);
+      });
+    });
+
+    map.fitBounds(routeLayer.getBounds(), {
+      padding: [25, 25]
+    });
+
+    status.textContent = "Percurso calculado com sucesso!";
+
   } catch (error) {
     status.textContent = error.message;
   }
